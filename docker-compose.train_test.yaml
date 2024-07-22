@@ -1,0 +1,41 @@
+services:
+  mm_train:
+    build: docker/train
+    volumes:
+      - ./data/:/mmdet/data/
+      - ./configs/:/mmdet/configs/
+      - ./work_dirs/:/mmdet/work_dirs/
+      - ./test_dirs/:/mmdet/test_dirs/
+      - ./temp_dir/:/mmdet/temp_dir/
+      # - ./tools/:/mmdet/tools/ # for the fast debug only. later delete!
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+      - CONFIG_FILE=${CONFIG_FILE}
+    env_file:
+      - .env
+    shm_size: '2gb'
+  mm_test:
+    build: docker/train
+    volumes:
+      - ./data/:/mmdet/data/
+      - ./configs/:/mmdet/configs/
+      - ./work_dirs/:/mmdet/work_dirs/
+      - ./test_dirs/:/mmdet/test_dirs/
+      - ./temp_dir/:/mmdet/temp_dir/
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+      - CONFIG_FILE=${CONFIG_FILE}
+    env_file:
+      - .env
+    shm_size: '2gb'
+    command:
+      - "python3"
+      - "/mmdet/tools/test_with_s3_data_sahi.py"
+      - "--s3-url"
+      - "${S3_VAL_URL}"
+      - "--config"
+      - "/mmdet/${CONFIG_FILE}"

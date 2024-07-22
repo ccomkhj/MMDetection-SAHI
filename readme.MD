@@ -36,34 +36,49 @@ python3 ./tools/train_with_s3_data.py \
 **Training with SAHI:**
 
 ```bash
-python3 ./tools/train_with_s3_data_sahi.py \
-  --s3-url s3://sample_path/2024-05-10_15-42-00 \
-  --local-data-path ./data/2024-05-10_15-42-00 \
-  --config ./configs/configuration.py
+sh run.sh
 ```
 
 [Note] in the configuration, follow the file structure below.
 ```
-data_root = "./data/2024-05-10_15-42-00" # same with your --local-data-path
+data_roots = [
+    "{{$DATASET_ROOT1:./data/coco/}}",
+    "{{$DATASET_ROOT2:./data/coco/}}",
+    "{{$DATASET_ROOT3:./data/coco/}}",
+    "{{$DATASET_ROOT4:./data/coco/}}",
+    "{{$DATASET_ROOT5:./data/coco/}}",
+    "{{$DATASET_ROOT6:./data/coco/}}",
+    "{{$DATASET_ROOT7:./data/coco/}}",
+    "{{$DATASET_ROOT8:./data/coco/}}",
+]  # prepare up to 8 samples beforehand, it can go a lot higer based on the length of ConcatDataset
 
 crop_size = (720, 720) # It is required for automatic SAHI slicing
 
-train_dataloader = dict(
-    batch_size=batch_size,
-    num_workers=batch_size,
-    persistent_workers=True,
-    sampler=dict(type="DefaultSampler", shuffle=True),
-    batch_sampler=dict(type="AspectRatioBatchSampler"),
-    dataset=dict(
+data_root = data_roots[-1]  # to prevent error in loading config.
+for idx in range(num_datasets):
+
+    data_root = data_roots[idx]
+
+    train_dataset = dict(
         type=dataset_type,
         metainfo=meta_info,
-        data_root=None,
-        ann_file=data_root + "/train.json",
-        data_prefix=dict(img=data_root + "/train_images"),
+        data_root=data_root,
+        ann_file="train.json",
+        data_prefix=dict(img="train_images"),
         filter_cfg=dict(filter_empty_gt=True, min_size=32),
         pipeline=train_pipeline,
         backend_args=None,
-    ),
+    )
+
+    train_datasets.append(train_dataset)
+
+train_dataloader = dict(
+    batch_size=batch_size,
+    num_workers=batch_size * 2,
+    persistent_workers=True,
+    sampler=dict(type="DefaultSampler", shuffle=True),
+    batch_sampler=dict(type="AspectRatioBatchSampler"),
+    dataset=dict(type="ConcatDataset", datasets=train_datasets),
 )
 val_dataloader = dict(
     batch_size=1,
@@ -86,6 +101,7 @@ val_evaluator = dict(
     type="CocoMetric",
     ann_file=data_root + "/val_sliced.json",
     metric="bbox",
+    classwise=True,
     format_only=False,
     backend_args=None,
 )
@@ -96,6 +112,5 @@ test_dataloader = val_dataloader
 ### Note
 
 - Ensure that the `--s3-url` is correctly pointing to your dataset's location within the S3 bucket.
-- The `--local-data-path` should point to where you want the dataset to be downloaded locally for the training session.
 - Modify the `--config` flag with the path to your own training configuration file as required.
 - To handle multiple COCO dataset, I maintain GUI-managetool [cvOps](https://github.com/ccomkhj/cvOps). Feel free to utilize. 
